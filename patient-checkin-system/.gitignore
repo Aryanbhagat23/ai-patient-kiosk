@@ -1,0 +1,18 @@
+# React
+/node_modules
+/build
+.env
+
+# Python
+/backend/venv/
+/backend/.venv/
+__pycache__/
+*.pyc
+
+# Local Data (IMPORTANT - Do not upload!)
+/backend/hospital.db
+/backend/images/
+
+# System files
+.DS_Store
+Thumbs.db

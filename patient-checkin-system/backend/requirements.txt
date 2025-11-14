@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+pydantic
+sqlalchemy
+python-multipart
+pytest
+httpx
+
+deepface==0.0.95
+opencv-python==4.10.0.84
+tf-keras==2.20.1
+numpy==2.2.6
+scipy==1.15.3
+pandas==2.2.3
