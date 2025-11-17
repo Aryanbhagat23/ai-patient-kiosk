@@ -3,6 +3,7 @@ import json
 import uuid
 import base64
 import numpy as np
+import pytz
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -186,10 +187,13 @@ def identify_patient(req: FaceIdentifyRequest, db: Session = Depends(get_db)):
     print("📸 AI Identifying...")
     cur_emb = get_embedding(req.image_data)
     if not cur_emb: return {"status": "new", "patient_id": None}
+    print("Embedding length:", len(cur_emb))
+    print("First 5 values:", cur_emb[:5])
 
     best_match, highest_score = None, 0.4
     for p in db.query(PatientDB).all():
         score = calculate_similarity(cur_emb, p.face_embedding)
+        print("Distance Score:", score)  # e.g. cosine distance or L2
         if score > highest_score: highest_score, best_match = score, p
 
     if best_match:
@@ -211,7 +215,25 @@ def register(req: PatientRegisterRequest, db: Session = Depends(get_db)):
     db.add(PatientDB(id=new_id, first_name=req.firstName, last_name=req.lastName, dob=req.dob, phone=req.phone, email=req.email, address=req.address, insurance_provider=req.insurance.provider, insurance_policy=req.insurance.policy, insurance_group=req.insurance.group, face_embedding=get_embedding(req.faceImage), image_path=img_path, registered_date=datetime.now().isoformat()))
     db.commit()
     log_action(db, "REGISTER", f"New patient: {new_id}")
-    return {"success": True, "patient_id": new_id}
+    # return {"success": True, "patient_id": new_id}
+    return {
+    "success": True,
+    "patient_id": new_id,
+    "patient": {
+        "id": new_id,
+        "first_name": req.firstName,
+        "last_name": req.lastName,
+        "dob": req.dob,
+        "address": req.address,
+        "phone": req.phone,
+        "email": req.email,
+        "insurance": {
+            "provider": req.insurance.provider,
+            "policy": req.insurance.policy,
+            "group": req.insurance.group
+        }
+    }
+}
 
 @app.post("/api/v1/appointment/book")
 def book(req: AppointmentBookRequest, db: Session = Depends(get_db)):
@@ -221,7 +243,20 @@ def book(req: AppointmentBookRequest, db: Session = Depends(get_db)):
     db.add(AppointmentDB(id=f"APT-{str(uuid.uuid4())[:8].upper()}", patient_id=req.patientId, patient_name=f"{p.first_name} {p.last_name}" if p else "Unknown", department=req.department, physician=req.physician, date=req.date, time=req.time, reason=req.reason, room_number=room, created_at=datetime.now().isoformat()))
     db.commit()
     log_action(db, "APPOINTMENT", f"Booked for {req.patientId} in {room}")
-    return {"success": True}
+    # return {"success": True}
+    return {
+    "success": True,
+    "appointment": {
+        "room_number": room,
+        "department": req.department,
+        "physician": req.physician,
+        "date": req.date,
+        "time": req.time,
+        "reason": req.reason or "",
+        "status": "scheduled"
+    }
+}
+
 
 @app.get("/api/v1/patients")
 def get_patients(db: Session = Depends(get_db)): return db.query(PatientDB).all()
@@ -244,36 +279,172 @@ def fetch_ehr(patient_id: str, db: Session = Depends(get_db)):
     import random
     return {"status":"success", "source":"Simulated_EHR", "data":{"full_name":f"{p.first_name} {p.last_name}", "blood_type":random.choice(["A+","O+"]), "allergies":random.choice(["None","Peanuts"]), "last_visit":"2024-02-20"}}
 
-@app.get("/api/v1/appointments/upcoming")
-def get_upcoming_appointment(patient_id: str, db: Session = Depends(get_db)):
-    # Get all scheduled appointments for this patient
-    appts = db.query(AppointmentDB).filter(
-        AppointmentDB.patient_id == patient_id,
-        AppointmentDB.status == "scheduled"
-    ).all()
+# @app.get("/api/v1/appointments/upcoming")
+# def get_upcoming_appointment(patient_id: str, db: Session = Depends(get_db)):
+#     # Get all scheduled appointments for this patient
+#     appts = db.query(AppointmentDB).filter(
+#         AppointmentDB.patient_id == patient_id,
+#         AppointmentDB.status == "scheduled"
+#     ).all()
 
-    if not appts:
+#     if not appts:
+#         return {}
+
+#     # Parse next upcoming by date + time
+#     def parse_dt(appt):
+#         try:
+#             return datetime.strptime(
+#                 f"{appt.date} {appt.time}", "%Y-%m-%d %I:%M %p"
+#             )
+#         except:
+#             return datetime.max
+
+#     appts.sort(key=parse_dt)
+
+#     next_appt = appts[0]
+
+#     return {
+#         "date": next_appt.date,
+#         "time": next_appt.time,
+#         "physician": next_appt.physician,
+#         "department": next_appt.department,
+#         "room": next_appt.room_number,
+#         "reason": next_appt.reason
+#     }
+@app.get("/api/v1/appointments/upcoming")
+def get_upcoming(patient_id: str, db: Session = Depends(get_db)):
+    # today = datetime.now().date().isoformat()
+    local = pytz.timezone("America/New_York")    # <-- FLORIDA
+    today = datetime.now(local).date().isoformat()
+
+    appt = (
+        db.query(AppointmentDB)
+        .filter(
+            AppointmentDB.patient_id == patient_id,
+            AppointmentDB.date > today
+        )
+        .order_by(AppointmentDB.date.asc())
+        .first()
+    )
+
+    if not appt:
         return {}
 
-    # Parse next upcoming by date + time
-    def parse_dt(appt):
-        try:
-            return datetime.strptime(
-                f"{appt.date} {appt.time}", "%Y-%m-%d %I:%M %p"
-            )
-        except:
-            return datetime.max
-
-    appts.sort(key=parse_dt)
-
-    next_appt = appts[0]
-
     return {
-        "date": next_appt.date,
-        "time": next_appt.time,
-        "physician": next_appt.physician,
-        "department": next_appt.department,
-        "room": next_appt.room_number,
-        "reason": next_appt.reason
+        "id": appt.id,
+        "patient_id": appt.patient_id,
+        "date": appt.date,
+        "time": appt.time,
+        "physician": appt.physician,
+        "department": appt.department,
+        "room": appt.room_number,
+        "status": appt.status,
     }
 
+@app.get("/api/v1/appointments/today/{patient_id}")
+def get_today_appt(patient_id: str, db: Session = Depends(get_db)):
+    # today = datetime.now().date().isoformat()
+
+
+    local = pytz.timezone("America/New_York")    # <-- FLORIDA
+    today = datetime.now(local).date().isoformat()
+    appts = db.query(AppointmentDB).filter(
+        AppointmentDB.patient_id == patient_id,
+        AppointmentDB.date == today
+    ).all()
+    return appts
+@app.get("/api/v1/appointments/latest")
+def get_latest_appointment(patient_id: str, db: Session = Depends(get_db)):
+    # today = datetime.now().date().isoformat()
+    local = pytz.timezone("America/New_York")    # <-- FLORIDA
+    today = datetime.now(local).date().isoformat()
+
+    # 1) Try to find a SCHEDULED appointment for today
+    appt_today = (
+        db.query(AppointmentDB)
+        .filter(
+            AppointmentDB.patient_id == patient_id,
+            AppointmentDB.date == today,
+            AppointmentDB.status == "scheduled",  # only scheduled, not arrived/completed
+        )
+        .order_by(AppointmentDB.time)
+        .first()
+    )
+
+    if appt_today:
+        return {
+            "date": appt_today.date,
+            "time": appt_today.time,
+            "physician": appt_today.physician,
+            "department": appt_today.department,
+            "room": appt_today.room_number,  # ✅ correct field name
+            "status": appt_today.status,
+        }
+
+    # 2) Otherwise, get the NEXT upcoming SCHEDULED appointment
+    next_appt = (
+        db.query(AppointmentDB)
+        .filter(
+            AppointmentDB.patient_id == patient_id,
+            AppointmentDB.date > today,
+            AppointmentDB.status == "scheduled",
+        )
+        .order_by(AppointmentDB.date, AppointmentDB.time)
+        .first()
+    )
+
+    if next_appt:
+        return {
+            "date": next_appt.date,
+            "time": next_appt.time,
+            "physician": next_appt.physician,
+            "department": next_appt.department,
+            "room": next_appt.room_number,   # ✅ correct field name
+            "status": next_appt.status,
+        }
+
+    # 3) No today/upcoming appointment
+    return {}
+
+# @app.get("/api/v1/appointments/latest")
+# def get_latest_appointment(patient_id: str, db: Session = Depends(get_db)):
+#     today = datetime.now().date().isoformat()
+
+#     # Try today's appointment first
+#     appt_today = (
+#         db.query(AppointmentDB)
+#         .filter(AppointmentDB.patient_id == patient_id,
+#                 AppointmentDB.date == today)
+#         .first()
+#     )
+
+#     if appt_today:
+#         return {
+#             "date": appt_today.date,
+#             "time": appt_today.time,
+#             "physician": appt_today.physician,
+#             "department": appt_today.department,
+#             "room": appt_today.room,
+#             "status": appt_today.status
+#         }
+
+#     # Otherwise upcoming
+#     next_appt = (
+#         db.query(AppointmentDB)
+#         .filter(AppointmentDB.patient_id == patient_id,
+#                 AppointmentDB.date > today)
+#         .order_by(AppointmentDB.date)
+#         .first()
+#     )
+
+#     if next_appt:
+#         return {
+#             "date": next_appt.date,
+#             "time": next_appt.time,
+#             "physician": next_appt.physician,
+#             "department": next_appt.department,
+#             "room": next_appt.room,
+#             "status": next_appt.status
+#         }
+
+#     return {}
