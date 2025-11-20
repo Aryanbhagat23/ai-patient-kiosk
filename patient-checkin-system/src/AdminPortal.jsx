@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Calendar, RefreshCw, Trash2, LogOut, Shield, FileText, Activity, X, User } from 'lucide-react';
+//
+// --- THIS IS THE FIX ---
+// I have added Check, UserCheck, and Clock to this import list.
+//
+import { 
+    Users, Calendar, RefreshCw, Trash2, LogOut, Shield, FileText, Activity, X, User, 
+    Check, UserCheck, Clock 
+} from 'lucide-react';
 
 export default function AdminPortal({ onLogout }) {
   const [patients, setPatients] = useState([]);
@@ -10,7 +17,7 @@ export default function AdminPortal({ onLogout }) {
   const [ehrData, setEhrData] = useState(null);
 
   const fetchData = async () => {
-    // (Loading set to false immediately to avoid flicker on auto-refresh)
+    setLoading(true);
     try {
       const [pRes, aRes, lRes] = await Promise.all([
           fetch("http://localhost:8000/api/v1/patients"),
@@ -18,9 +25,13 @@ export default function AdminPortal({ onLogout }) {
           fetch("http://localhost:8000/api/v1/audit_logs")
       ]);
       if (pRes.ok && aRes.ok && lRes.ok) {
-          setPatients(await pRes.json() || []);
-          setAppointments(await aRes.json() || []);
-          setAuditLogs(await lRes.json() || []);
+          const pData = await pRes.json();
+          const aData = await aRes.json();
+          const lData = await lRes.json();
+          
+          setPatients(Array.isArray(pData) ? pData : []);
+          setAppointments(Array.isArray(aData) ? aData : []);
+          setAuditLogs(Array.isArray(lData) ? lData : []);
       }
     } catch (error) { console.error("API Error"); }
     setLoading(false);
@@ -41,9 +52,38 @@ export default function AdminPortal({ onLogout }) {
           if(res.ok) setEhrData(await res.json());
       } catch (e) { alert("EHR Connection Failed"); }
   };
+  
+  const handleCompleteAppointment = async (apptId) => {
+      if (!window.confirm("Mark this appointment as completed?")) return;
+      try {
+          await fetch(`http://localhost:8000/api/v1/appointment/${apptId}/complete`, { 
+              method: 'PATCH' 
+          });
+          fetchData(); // Refresh list to show new status
+      } catch(e) {
+          alert("Failed to update status.");
+      }
+  };
 
-  // Helper to get image URL from backend
   const getImgUrl = (path) => path ? `http://localhost:8000/${path}` : null;
+
+  // --- Status Button Component ---
+  const StatusButton = ({ apt }) => {
+    if (apt.status === 'completed') {
+      return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700 flex items-center gap-1"><Check size={14}/> Completed</span>;
+    }
+    if (apt.status === 'arrived') {
+      return (
+        <button 
+          onClick={() => handleCompleteAppointment(apt.id)}
+          className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 flex items-center gap-1"
+        >
+          <UserCheck size={14}/> Arrived (Click to Complete)
+        </button>
+      );
+    }
+    return <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 flex items-center gap-1"><Clock size={14}/> Scheduled</span>;
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -84,7 +124,12 @@ export default function AdminPortal({ onLogout }) {
             </thead>
             <tbody className="divide-y">
               {activeTab === 'appointments' && appointments.map((a,i) => (
-                <tr key={i} className="hover:bg-gray-50"><td className="p-4">{a.date}<br/><span className="text-sm text-gray-500">{a.time}</span></td><td className="p-4 font-medium">{a.patient_name}</td><td className="p-4 text-sm">{a.physician}<br/>{a.department}</td><td className="p-4"><span className={`px-2 py-1 rounded-full text-xs ${a.status==='arrived'?'bg-green-100 text-green-800':'bg-blue-100 text-blue-800'}`}>{a.status.toUpperCase()}</span></td></tr>
+                <tr key={i} className={`hover:bg-gray-50 ${a.status === 'completed' ? 'opacity-50' : ''}`}>
+                    <td className="p-4">{a.date}<br/><span className="text-sm text-gray-500">{a.time}</span></td>
+                    <td className="p-4 font-medium">{a.patient_name}</td>
+                    <td className="p-4 text-sm">{a.physician}<br/>{a.department}</td>
+                    <td className="p-4"><StatusButton apt={a} /></td>
+                </tr>
               ))}
               {activeTab === 'patients' && patients.map((p,i) => (
                 <tr key={i} className="hover:bg-gray-50">
@@ -95,12 +140,12 @@ export default function AdminPortal({ onLogout }) {
                         }
                     </td>
                     <td className="p-4"><div className="font-bold">{p.first_name} {p.last_name}</div><div className="font-mono text-xs text-blue-600">{p.id}</div></td>
-                    <td className="p-4 text-sm">{p.email}<br/>{p.phone}</td>
+                    <td className="p-4 text-sm">{p.phone}<br/>{p.email}</td>
                     <td className="p-4"><button onClick={() => handleViewEHR(p.id)} className="flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium hover:bg-indigo-100 transition"><Activity size={14}/> View EHR</button></td>
                 </tr>
               ))}
               {activeTab === 'audit' && auditLogs.map((log,i) => (
-                <tr key={i} className="hover:bg-gray-50 font-mono text-sm"><td className="p-4 text-gray-500">{new Date(log.timestamp).toLocaleString()}</td><td className="p-4 font-bold"><span className={`px-2 py-1 rounded ${log.action.includes('LOGIN')?'bg-yellow-100 text-yellow-800': log.action==='REGISTER'?'bg-green-100 text-green-800': log.action.includes('EHR')?'bg-purple-100 text-purple-800':'bg-gray-100'}`}>{log.action}</span></td><td className="p-4">{log.details}</td></tr>
+                <tr key={i} className="hover:bg-gray-50 font-mono text-sm"><td className="p-4 text-gray-500">{new Date(log.timestamp).toLocaleString()}</td><td className="p-4 font-bold"><span className={`px-2 py-1 rounded ${log.action.includes('LOGIN')?'bg-yellow-100 text-yellow-800': log.action==='REGISTER'?'bg-green-100 text-green-800': log.action.includes('EHR')?'bg-purple-100 text-purple-800': log.action.includes('COMPLETED')?'bg-gray-200 text-gray-800':'bg-gray-100'}`}>{log.action}</span></td><td className="p-4">{log.details}</td></tr>
               ))}
             </tbody>
           </table>
@@ -117,16 +162,25 @@ export default function AdminPortal({ onLogout }) {
                     <button onClick={() => setEhrData(null)} className="text-white/80 hover:text-white"><X/></button>
                 </div>
                 <div className="p-6 space-y-4">
-                    <div className="flex justify-between text-sm text-gray-500"><span>Source: {ehrData.source}</span><span>ID: {ehrData.data.patient_id}</span></div>
+                    <div className="flex justify-between text-sm text-gray-500"><span>Source: {ehrData.source}</span></div>
                     <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 space-y-3">
                         <div className="grid grid-cols-2 gap-4">
-                            <div><p className="text-xs text-indigo-500 font-semibold uppercase">Full Name</p><p className="font-medium">{ehrData.data.full_name}</p></div>
-                            <div><p className="text-xs text-indigo-500 font-semibold uppercase">Blood Type</p><p className="font-medium">{ehrData.data.blood_type}</p></div>
-                            <div><p className="text-xs text-indigo-500 font-semibold uppercase">Last Visit</p><p className="font-medium">{ehrData.data.last_visit}</p></div>
+                            <div><p className="text-xs text-indigo-500 font-semibold uppercase">Full Name</p><p className="font-medium">{ehrData.mock_data.full_name}</p></div>
+                            <div><p className="text-xs text-indigo-500 font-semibold uppercase">Blood Type</p><p className="font-medium">{ehrData.mock_data.blood_type}</p></div>
                         </div>
-                        <div className="pt-3 border-t border-indigo-200"><p className="text-xs text-indigo-500 font-semibold uppercase">Allergies</p><p className="font-medium text-red-600">{ehrData.data.allergies}</p></div>
+                        <div className="pt-3 border-t border-indigo-200"><p className="text-xs text-indigo-500 font-semibold uppercase">Allergies</p><p className="font-medium text-red-600">{ehrData.mock_data.allergies}</p></div>
                     </div>
-                    <p className="text-xs text-center text-gray-400 mt-4">CONFIDENTIAL - AUTHORIZED PERSONNEL ONLY</p>
+                    {/* REAL appointment history */}
+                    <div className="pt-3 border-t">
+                        <h3 className="font-semibold text-gray-700 mb-2">Internal Appointment History</h3>
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {ehrData.system_history.length > 0 ? ehrData.system_history.map((h, i) => (
+                                <div key={i} className="text-sm p-2 bg-gray-50 rounded">
+                                    <span className="font-medium">{h.date}</span>: {h.reason || 'Check-up'} with {h.physician} (Status: {h.status})
+                                </div>
+                            )) : <p className="text-sm text-gray-500">No history found in our system.</p>}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -134,4 +188,6 @@ export default function AdminPortal({ onLogout }) {
     </div>
   );
 }
+
+// Icon for Admin Portal header
 const LockIcon=(p)=><svg{...p}xmlns="http://www.w3.org/2000/svg"width="24"height="24"viewBox="0 0 24 24"fill="none"stroke="currentColor"strokeWidth="2"strokeLinecap="round"strokeLinejoin="round"><rect width="18"height="11"x="3"y="11"rx="2"ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
