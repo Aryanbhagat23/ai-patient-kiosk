@@ -39,7 +39,8 @@ const EN_TRANSLATIONS = {
     statusArrived: 'Arrived',
     statusScheduled: 'Scheduled',
     statusCompleted: 'Completed',
-    noSlotsToday: 'No more slots available today'
+    noSlotsToday: 'No more slots available today',
+    checkInNow: 'Check In Now' // --- ADDED THIS ---
 };
 
 const TRANSLATIONS = {
@@ -63,7 +64,8 @@ const TRANSLATIONS = {
     checkedIn: '¡Registrado!', pleaseProceed: 'Por favor diríjase a:', room: 'Sala',
     errPhone: 'Solo dígitos (10-15)', errEmail: 'Formato de correo inválido', errReq: 'Campo obligatorio',
     pastAppointments: 'Sus Citas Anteriores', statusArrived: 'Llegó', statusScheduled: 'Programada', statusCompleted: 'Completado',
-    noSlotsToday: 'No hay más citas disponibles hoy'
+    noSlotsToday: 'No hay más citas disponibles hoy',
+    checkInNow: 'Registrarse Ahora' // --- ADDED THIS ---
   },
   fr: {
     ...EN_TRANSLATIONS,
@@ -84,7 +86,8 @@ const TRANSLATIONS = {
     checkedIn: 'Enregistré!', pleaseProceed: 'Veuillez vous rendre à :', room: 'Salle',
     errPhone: 'Chiffres uniquement (10-15)', errEmail: 'Format email invalide', errReq: 'Champ obligatoire',
     pastAppointments: 'Vos rendez-vous passés', statusArrived: 'Arrivé', statusScheduled: 'Prévu', statusCompleted: 'Complété',
-    noSlotsToday: 'Plus de créneaux disponibles aujourd\'hui'
+    noSlotsToday: 'Plus de créneaux disponibles aujourd\'hui',
+    checkInNow: 'S\'enregistrer' // --- ADDED THIS ---
   },
   zh: {
     ...EN_TRANSLATIONS,
@@ -106,7 +109,8 @@ const TRANSLATIONS = {
     pleaseProceed: '请前往:', room: '房间', errPhone: '仅限数字 (10-15)',
     errEmail: '无效的电子邮件格式', errReq: '必填项', pastAppointments: '您过去的约会',
     statusArrived: '已到达', statusScheduled: '已预约', statusCompleted: '已完成',
-    noSlotsToday: '今天没有更多可用时段'
+    noSlotsToday: '今天没有更多可用时段',
+    checkInNow: '立即报到' // --- ADDED THIS ---
   }
 };
 
@@ -189,7 +193,7 @@ export default function PatientCheckInKiosk() {
         setPatient(matchedPatient);
         setScanStatus(t.verificationSuccess);
         await new Promise(r => setTimeout(r, 1500));
-        setCurrentStep(routing ? 'routing' : 'confirm');
+        setCurrentStep('confirm');
     } else {
         setScanStatus(t.newPatient);
         await new Promise(r => setTimeout(r, 1500));
@@ -260,7 +264,10 @@ export default function PatientCheckInKiosk() {
           {currentStep === 'facial' && <StepFacial t={t} isProcessing={isProcessing} scanStatus={scanStatus} isCameraReady={isCameraReady} videoRef={videoRef} canvasRef={canvasRef} handleAIScan={handleAIScan} />}
           {currentStep === 'register' && <StepRegister t={t} data={newPatientData} setData={setNewPatientData} onSubmit={handleRegister} isProcessing={isProcessing} faceImage={capturedFaceImage} />}
           {currentStep === 'registrationSuccess' && <StepComplete t={t} patient={patient} isRegSuccess={true} onNext={() => setCurrentStep('appointment')} />}
-          {currentStep === 'confirm' && <StepConfirm t={t} patient={patient} history={appointmentHistory} onNext={() => setCurrentStep('appointment')} />}
+          
+          {/* --- THIS IS THE CHANGED LINE BELOW --- */}
+          {currentStep === 'confirm' && <StepConfirm t={t} patient={patient} history={appointmentHistory} routing={routing} onNext={() => routing ? setCurrentStep('routing') : setCurrentStep('appointment')} />}
+          
           {currentStep === 'appointment' && <StepAppointment t={t} data={appointment} setData={setAppointment} onSubmit={handleBooking} isProcessing={isProcessing} depts={DEPARTMENTS} docs={PHYSICIANS} times={TIME_SLOTS} />}
           {currentStep === 'forms' && <StepForms t={t} forms={REQUIRED_FORMS} onComplete={() => setCurrentStep('complete')} />}
           {currentStep === 'complete' && <StepComplete t={t} patient={patient} appointment={appointment} onReset={resetKiosk} />}
@@ -295,10 +302,10 @@ function StepFacial({ t, isProcessing, scanStatus, isCameraReady, videoRef, canv
     if (isCameraReady && !isProcessing) {
        timer = setTimeout(() => {
          if (canvasRef.current && videoRef.current) {
-            const ctx = canvasRef.current.getContext('2d');
-            canvasRef.current.width = videoRef.current.videoWidth; canvasRef.current.height = videoRef.current.videoHeight;
-            ctx.drawImage(videoRef.current, 0, 0);
-            handleAIScan(canvasRef.current.toDataURL('image/jpeg', 0.8));
+           const ctx = canvasRef.current.getContext('2d');
+           canvasRef.current.width = videoRef.current.videoWidth; canvasRef.current.height = videoRef.current.videoHeight;
+           ctx.drawImage(videoRef.current, 0, 0);
+           handleAIScan(canvasRef.current.toDataURL('image/jpeg', 0.8));
          }
        }, 2000);
     }
@@ -382,7 +389,8 @@ function StepRegister({ t, data, setData, onSubmit, isProcessing, faceImage }) {
   );
 }
 
-function StepConfirm({ t, patient, history, onNext }) {
+// --- THIS IS THE CHANGED COMPONENT BELOW ---
+function StepConfirm({ t, patient, history, routing, onNext }) {
   const StatusBadge = ({ status }) => {
     let text = t.statusScheduled; let color = 'bg-blue-100 text-blue-800';
     if (status === 'arrived') { text = t.statusArrived; color = 'bg-green-100 text-green-800'; }
@@ -410,7 +418,11 @@ function StepConfirm({ t, patient, history, onNext }) {
           </div>
         ) : (<p className="text-gray-500 text-sm">No appointment history found.</p>)}
       </div>
-      <button onClick={onNext} className="w-full py-4 bg-blue-600 text-white rounded-lg font-semibold flex justify-center gap-2"><Check/> {t.next}</button>
+      
+      {/* --- SMART BUTTON LOGIC --- */}
+      <button onClick={onNext} className={`w-full py-4 ${routing ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600'} text-white rounded-lg font-semibold flex justify-center gap-2`}>
+        <Check/> {routing ? t.checkInNow : t.next}
+      </button>
     </div>
   );
 }
