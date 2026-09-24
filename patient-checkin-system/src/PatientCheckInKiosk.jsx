@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-    Camera, Check, Loader2, Home, User, CheckCircle, UserPlus, Video, Database, 
+    Check, Loader2, Home, User, CheckCircle, UserPlus, Video, Database, 
     FileText, X, MapPin, Clock, UserCheck, AlertCircle, Calendar 
 } from 'lucide-react';
+import { API_URL } from './config';
 
 // =========================================
 // 1. STATIC DATA & FULL TRANSLATIONS
@@ -154,8 +155,8 @@ export default function PatientCheckInKiosk() {
       const fetchStats = async () => {
           try {
               const [p, a] = await Promise.all([
-                  fetch("http://localhost:8000/api/v1/patients").then(r=>r.json()),
-                  fetch("http://localhost:8000/api/v1/appointments").then(r=>r.json())
+                  fetch(`${API_URL}/api/v1/patients`).then(r=>r.json()),
+                  fetch(`${API_URL}/api/v1/appointments`).then(r=>r.json())
               ]);
               setDbStats({ patients: Array.isArray(p)?p.length:0, appointments: Array.isArray(a)?a.length:0 });
           } catch(e) {}
@@ -173,12 +174,12 @@ export default function PatientCheckInKiosk() {
     let matchedPatient = null;
     try {
         if (!forceSimulation) {
-            const res = await fetch("http://localhost:8000/api/v1/face/identify", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_data: faceImageData }) });
+            const res = await fetch(`${API_URL}/api/v1/face/identify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_data: faceImageData }) });
             if (!res.ok) throw new Error("API identify error");
             const data = await res.json();
             
             if (data.status === 'match' && data.patient_id) {
-                const allPatientsRes = await fetch("http://localhost:8000/api/v1/patients");
+                const allPatientsRes = await fetch(`${API_URL}/api/v1/patients`);
                 if (allPatientsRes.ok) {
                     const allPatients = await allPatientsRes.json();
                     matchedPatient = allPatients.find(p => p.id === data.patient_id);
@@ -200,7 +201,7 @@ export default function PatientCheckInKiosk() {
         setCurrentStep('register');
     }
     setIsProcessing(false);
-  }, [t, routing]);
+  }, [t]);
 
   // CAMERA LOGIC
   const startCamera = useCallback(async () => {
@@ -226,7 +227,7 @@ export default function PatientCheckInKiosk() {
   const handleRegister = async () => {
     setIsProcessing(true); setScanStatus(t.savingToDb);
     try {
-        const res = await fetch("http://localhost:8000/api/v1/patient/register", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...newPatientData, faceImage: capturedFaceImage }) });
+        const res = await fetch(`${API_URL}/api/v1/patient/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...newPatientData, faceImage: capturedFaceImage }) });
         if (!res.ok) throw new Error("Registration failed");
         const data = await res.json();
         setPatient({ id: data.patient_id, first_name: newPatientData.firstName, last_name: newPatientData.lastName, ...newPatientData });
@@ -239,7 +240,7 @@ export default function PatientCheckInKiosk() {
   const handleBooking = async () => {
     setIsProcessing(true);
     try {
-        await fetch("http://localhost:8000/api/v1/appointment/book", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patientId: patient.id, ...appointment }) });
+        await fetch(`${API_URL}/api/v1/appointment/book`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patientId: patient.id, ...appointment }) });
     } catch (error) { console.error("Booking Error"); }
     await new Promise(r => setTimeout(r, 1500));
     setIsProcessing(false);

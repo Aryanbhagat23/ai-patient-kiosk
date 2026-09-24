@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, Lock, AlertCircle, ArrowLeft } from 'lucide-react';
+import { API_URL } from './config';
 
 export default function StaffLogin({ onLoginSuccess, onBack }) {
   const [username, setUsername] = useState('');
@@ -11,7 +12,7 @@ export default function StaffLogin({ onLoginSuccess, onBack }) {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const res = await fetch("http://localhost:8000/api/v1/staff/login", {
+      const res = await fetch(`${API_URL}/api/v1/staff/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

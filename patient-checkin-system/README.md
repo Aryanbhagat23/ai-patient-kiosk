@@ -1,118 +1,80 @@
 # AI-Powered Patient Check-In System
 
-## 🚀 Quick Start
+A React kiosk frontend plus a Python (FastAPI) backend. **You must run both, in two separate terminals.**
 
-This project consists of a React frontend and a Python (FastAPI) backend. You must run both.
+> All commands below are run from inside this `patient-checkin-system/` folder,
+> not from the repository root.
 
-### 1. Backend Setup
-Open a terminal in the `backend` folder:
+## Requirements
+
+- **Node.js** 18 or newer (includes `npm`)
+- **Python 3.9 – 3.12** (TensorFlow, used by DeepFace, does not support newer Python versions yet)
+
+## Easiest: one command
+
+From the repository root, run `start.bat` (Windows) or `./start.sh` (macOS / Linux).
+It creates the Python environment, installs packages on first run, and starts both servers.
+
+The manual steps below do the same thing by hand.
+
+## 1. Backend (terminal 1)
+
 ```bash
-# 1. Install dependencies
+cd patient-checkin-system/backend
+
+# Create and activate a virtual environment
+python -m venv venv
+# macOS / Linux:
+source venv/bin/activate
+# Windows (PowerShell):
+#   venv\Scripts\Activate.ps1
+
+# Install dependencies (large download: TensorFlow + DeepFace)
 pip install -r requirements.txt
 
-# 2. Run the server
-# (This will also download AI models on first run)
+# Run the server (downloads the face model on first use)
 uvicorn main:app --reload --port 8000
+```
 
-Let's get this on GitHub! Here is the complete, step-by-step process.
+Wait for `Application startup complete`. Open http://localhost:8000 and you should see `{"status":"online"}`.
 
-This guide will make sure you do not upload your node_modules folder (which is huge) or your local database/images (which is bad practice and a privacy risk).
+If DeepFace fails to install, the backend still starts in **simulation mode** without face recognition.
 
-Step 1: Create the .gitignore File
-This is the most important step. In your main project folder (the one that contains src and backend), create a new file named .gitignore (yes, it starts with a dot).
+## 2. Frontend (terminal 2)
 
-Paste this code into it:
-
-Code snippet
-
-# React
-/node_modules
-/build
-.env
-
-# Python
-/backend/venv/
-/backend/.venv/
-__pycache__/
-*.pyc
-
-# Local Data (IMPORTANT - Do not upload!)
-/backend/hospital.db
-/backend/images/
-
-# System files
-.DS_Store
-Thumbs.db
-Step 2: Create the README.md File
-This is the instruction manual for your team. Create a file named README.md in your main project folder.
-
-Paste this into it:
-
-Markdown
-
-# AI-Powered Patient Check-In System
-
-## 🚀 Quick Start
-
-This project consists of a React frontend and a Python (FastAPI) backend. You must run both.
-
-### 1. Backend Setup
-Open a terminal in the `backend` folder:
 ```bash
-# 1. Install dependencies
-pip install -r requirements.txt
+cd patient-checkin-system
 
-# 2. Run the server
-# (This will also download AI models on first run)
-uvicorn main:app --reload --port 8000
-Wait for "Application startup complete".
-
-2. Frontend Setup
-Open a new, separate terminal in the main project folder:
-
-Bash
-
-# 1. Install dependencies
 npm install
-
-# 2. Run the app
 npm start
-The app will open at http://localhost:3000.
+```
 
-🔑 Default Staff Login
-Username: admin
+The app opens at http://localhost:3000. It talks to the backend at `http://localhost:8000`, so keep terminal 1 running.
 
-Password: password123
+## Default staff login
 
+Click the red lock button in the bottom-right corner.
 
-### Step 3: Create the GitHub Repository
+- Username: `admin`
+- Password: `password123`
 
-1.  Go to [GitHub.com](https://github.com) and log in.
-2.  Click the **+** icon in the top right and select **New repository**. 
-3.  Name your repository (e.g., `ai-patient-kiosk`).
-4.  Choose **Private**. This is critical for a health-related project, even a school one. You can invite your team members manually.
-5.  **DO NOT** check "Add a README" or "Add .gitignore". We already created these.
-6.  Click **Create repository**.
-
-### Step 4: Upload Your Code
-
-On the next page, GitHub shows you the commands. Copy them into your terminal from your **main project folder**.
+## Tests
 
 ```bash
-# 1. Initialize Git (if you haven't already)
-git init
+# Backend (from backend/, with venv active)
+pytest
 
-# 2. Add ALL your files (it will skip files in .gitignore)
-git add .
+# Frontend
+npm test
+```
 
-# 3. Save your files in a "commit"
-git commit -m "Initial project commit"
+## Troubleshooting
 
-# 4. Set the main branch name
-git branch -M main
-
-# 5. Link your local folder to GitHub (COPY THIS URL FROM GITHUB)
-git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git
-
-# 6. Push (upload) your code
-git push -u origin main
+| Problem | Fix |
+| --- | --- |
+| `npm ERR! enoent Could not read package.json` | You are in the repo root. `cd patient-checkin-system` first. |
+| `Error loading ASGI app. Could not import module "main"` | Run `uvicorn` from inside `backend/`. |
+| `No matching distribution found for tensorflow` | Your Python is too new. Install Python 3.11 and recreate the venv. |
+| Kiosk shows no data / "Failed to fetch" | The backend isn't running on port 8000. |
+| Camera doesn't turn on | Allow camera access in the browser; use `http://localhost`, not an IP address. |
+| Port 3000 or 8000 already in use | Stop the other process, or run the backend on another port (`uvicorn main:app --port 8001`) and create a `.env` file here containing `REACT_APP_API_URL=http://localhost:8001`, then restart `npm start`. |
