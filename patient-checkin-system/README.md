@@ -10,6 +10,13 @@ A React kiosk frontend plus a Python (FastAPI) backend. **You must run both, in 
 - **Node.js** 18 or newer (includes `npm`)
 - **Python 3.9 – 3.12** (TensorFlow, used by DeepFace, does not support newer Python versions yet)
 
+## Easiest: one command
+
+From the repository root, run `start.bat` (Windows) or `./start.sh` (macOS / Linux).
+It creates the Python environment, installs packages on first run, and starts both servers.
+
+The manual steps below do the same thing by hand.
+
 ## 1. Backend (terminal 1)
 
 ```bash
@@ -70,4 +77,4 @@ npm test
 | `No matching distribution found for tensorflow` | Your Python is too new. Install Python 3.11 and recreate the venv. |
 | Kiosk shows no data / "Failed to fetch" | The backend isn't running on port 8000. |
 | Camera doesn't turn on | Allow camera access in the browser; use `http://localhost`, not an IP address. |
-| Port 3000 or 8000 already in use | Stop the other process, or run `uvicorn main:app --port 8001` (then update the URLs in `src/`). |
+| Port 3000 or 8000 already in use | Stop the other process, or run the backend on another port (`uvicorn main:app --port 8001`) and create a `.env` file here containing `REACT_APP_API_URL=http://localhost:8001`, then restart `npm start`. |

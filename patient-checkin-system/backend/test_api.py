@@ -1,6 +1,11 @@
+import os
+import tempfile
+
+# Use a throwaway database so tests never touch the real hospital.db
+os.environ["DATABASE_URL"] = f"sqlite:///{os.path.join(tempfile.mkdtemp(), 'test.db')}"
+
 from fastapi.testclient import TestClient
 from main import app
-import os
 
 # Create a test client that can send fake requests to your API
 client = TestClient(app)

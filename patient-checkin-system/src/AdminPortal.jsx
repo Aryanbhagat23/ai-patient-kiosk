@@ -7,6 +7,7 @@ import {
     Users, Calendar, RefreshCw, Trash2, LogOut, Shield, FileText, Activity, X, User, 
     Check, UserCheck, Clock 
 } from 'lucide-react';
+import { API_URL } from './config';
 
 export default function AdminPortal({ onLogout }) {
   const [patients, setPatients] = useState([]);
@@ -20,9 +21,9 @@ export default function AdminPortal({ onLogout }) {
     setLoading(true);
     try {
       const [pRes, aRes, lRes] = await Promise.all([
-          fetch("http://localhost:8000/api/v1/patients"),
-          fetch("http://localhost:8000/api/v1/appointments"),
-          fetch("http://localhost:8000/api/v1/audit_logs")
+          fetch(`${API_URL}/api/v1/patients`),
+          fetch(`${API_URL}/api/v1/appointments`),
+          fetch(`${API_URL}/api/v1/audit_logs`)
       ]);
       if (pRes.ok && aRes.ok && lRes.ok) {
           const pData = await pRes.json();
@@ -41,14 +42,14 @@ export default function AdminPortal({ onLogout }) {
 
   const handleReset = async () => {
       if(window.confirm("⚠️ DELETE ALL DATA?")) {
-          await fetch("http://localhost:8000/api/v1/reset_db", {method:'DELETE'});
+          await fetch(`${API_URL}/api/v1/reset_db`, {method:'DELETE'});
           fetchData();
       }
   };
 
   const handleViewEHR = async (pid) => {
       try {
-          const res = await fetch(`http://localhost:8000/api/v1/integration/ehr/${pid}`);
+          const res = await fetch(`${API_URL}/api/v1/integration/ehr/${pid}`);
           if(res.ok) setEhrData(await res.json());
       } catch (e) { alert("EHR Connection Failed"); }
   };
@@ -56,7 +57,7 @@ export default function AdminPortal({ onLogout }) {
   const handleCompleteAppointment = async (apptId) => {
       if (!window.confirm("Mark this appointment as completed?")) return;
       try {
-          await fetch(`http://localhost:8000/api/v1/appointment/${apptId}/complete`, { 
+          await fetch(`${API_URL}/api/v1/appointment/${apptId}/complete`, { 
               method: 'PATCH' 
           });
           fetchData(); // Refresh list to show new status
@@ -65,7 +66,7 @@ export default function AdminPortal({ onLogout }) {
       }
   };
 
-  const getImgUrl = (path) => path ? `http://localhost:8000/${path}` : null;
+  const getImgUrl = (path) => path ? `${API_URL}/${path}` : null;
 
   // --- Status Button Component ---
   const StatusButton = ({ apt }) => {

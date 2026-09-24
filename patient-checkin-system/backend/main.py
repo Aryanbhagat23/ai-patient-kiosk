@@ -24,8 +24,12 @@ except ImportError:
     AI_AVAILABLE = False
     print("⚠️ AI NOT FOUND: Running in simulation mode.")
 
+# --- PATHS (relative to this file, so the server can be started from any folder) ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+IMAGES_DIR = os.path.join(BASE_DIR, "images")
+
 # --- DATABASE ---
-SQLALCHEMY_DATABASE_URL = "sqlite:///./hospital.db"
+SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'hospital.db')}")
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -78,8 +82,8 @@ class AuditDB(Base):
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AI Patient Kiosk API (v2)")
-os.makedirs("images", exist_ok=True)
-app.mount("/images", StaticFiles(directory="images"), name="images")
+os.makedirs(IMAGES_DIR, exist_ok=True)
+app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True,
@@ -142,9 +146,8 @@ def save_image_to_disk(base64_data, patient_id):
     try:
         if not base64_data or len(base64_data) < 100: return None
         if "base64," in base64_data: base64_data = base64_data.split(",")[1]
-        file_path = f"images/{patient_id}.jpg"
-        with open(file_path, "wb") as f: f.write(base64.b64decode(base64_data))
-        return file_path
+        with open(os.path.join(IMAGES_DIR, f"{patient_id}.jpg"), "wb") as f: f.write(base64.b64decode(base64_data))
+        return f"images/{patient_id}.jpg"  # URL path served by the /images mount
     except: return None
 
 @app.get("/")
