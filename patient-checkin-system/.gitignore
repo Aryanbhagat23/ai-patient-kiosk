@@ -16,3 +16,5 @@ __pycache__/
 # System files
 .DS_Store
 Thumbs.db
+# Session signing key (generated on first run)
+/backend/.secret_key

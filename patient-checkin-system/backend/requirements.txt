@@ -1,9 +1,11 @@
-fastapi
-uvicorn[standard]
-pydantic
-sqlalchemy
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.5
+sqlalchemy>=2.0
 python-multipart
 numpy
+# Clinic time zone data (Windows has no built-in IANA time zone database)
+tzdata
 deepface==0.0.101
 tf-keras
 # OpenCV 5 dropped the face-detector files DeepFace needs
