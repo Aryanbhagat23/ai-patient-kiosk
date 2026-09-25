@@ -128,12 +128,28 @@ class AppointmentBookRequest(BaseModel):
     time: str
     reason: str
 
+# Cosine similarity needed to count as the same person. Facenet512 typically scores
+# ~0.7+ for the same face and <0.3 for different people.
+MATCH_THRESHOLD = 0.5
+
 def get_embedding(image_data: str):
     if not AI_AVAILABLE or not image_data: return None
     try:
         res = DeepFace.represent(img_path=image_data, model_name="Facenet512", enforce_detection=False)
         return json.dumps(res[0]["embedding"]) if res else None
-    except: return None
+    except Exception as e:
+        print(f"❌ Face embedding failed: {e}")
+        return None
+
+def backfill_embedding(p: "PatientDB", db: Session):
+    """Patients saved while the AI was broken have a photo but no embedding; compute it now."""
+    if p.face_embedding or not p.image_path: return
+    path = os.path.join(BASE_DIR, p.image_path)
+    if not os.path.isfile(path): return
+    p.face_embedding = get_embedding(path)
+    if p.face_embedding:
+        db.commit()
+        print(f"🔁 Rebuilt face data for {p.first_name} {p.last_name}")
 
 def calculate_similarity(emb1, emb2):
     if not emb1 or not emb2: return 0.0
@@ -165,13 +181,14 @@ def identify_patient(req: FaceIdentifyRequest, db: Session = Depends(get_db)):
     cur_emb = get_embedding(req.image_data)
     if not cur_emb: return {"status": "new", "patient_id": None}
     
-    best_match, highest_score = None, 0.30
+    best_match, highest_score = None, MATCH_THRESHOLD
     for p in db.query(PatientDB).all():
+        backfill_embedding(p, db)
         score = calculate_similarity(cur_emb, p.face_embedding)
         if score > highest_score: highest_score, best_match = score, p
 
     if best_match:
-        print(f"✅ MATCH: {best_match.first_name}")
+        print(f"✅ MATCH: {best_match.first_name} (similarity {highest_score:.2f})")
         
         # --- SMART AUTO-CHECKIN FIX ---
         # Find ANY scheduled appointment, regardless of Date
@@ -191,6 +208,7 @@ def identify_patient(req: FaceIdentifyRequest, db: Session = Depends(get_db)):
             routing = {"room": apt.room_number, "physician": apt.physician, "department": apt.department, "time": apt.time}
         
         return {"status": "match", "patient_id": best_match.id, "routing": routing, "history": history}
+    print(f"🆕 No match (best similarity below {MATCH_THRESHOLD})")
     return {"status": "new", "patient_id": None}
 
 @app.post("/api/v1/patient/register")

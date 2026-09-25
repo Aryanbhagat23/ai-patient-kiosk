@@ -21,12 +21,17 @@ if [ -z "$PY" ]; then
 fi
 command -v npm >/dev/null 2>&1 || { echo "❌ Node.js is required. Install it from https://nodejs.org/"; exit 1; }
 
-# --- Backend setup (first run only) ---
+# --- Backend setup (first run, or whenever requirements.txt changes) ---
+if [ -d "$BACKEND/venv" ] && ! cmp -s "$BACKEND/requirements.txt" "$BACKEND/venv/requirements.installed"; then
+  echo "♻️  requirements.txt changed, rebuilding the Python environment ..."
+  rm -rf "$BACKEND/venv"
+fi
 if [ ! -x "$BACKEND/venv/bin/python" ]; then
   echo "📦 Creating Python virtual environment with $PY ..."
   "$PY" -m venv "$BACKEND/venv"
   "$BACKEND/venv/bin/python" -m pip install --upgrade pip
   "$BACKEND/venv/bin/python" -m pip install -r "$BACKEND/requirements.txt"
+  cp "$BACKEND/requirements.txt" "$BACKEND/venv/requirements.installed"
 fi
 
 # --- Frontend setup (first run only) ---

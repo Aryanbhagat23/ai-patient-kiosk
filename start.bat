@@ -25,12 +25,19 @@ if not defined PY (
   exit /b 1
 )
 
-REM --- Backend setup (first run only) ---
+REM --- Backend setup (first run, or whenever requirements.txt changes) ---
+if exist "%BACKEND%\venv" (
+  fc /b "%BACKEND%\requirements.txt" "%BACKEND%\venv\requirements.installed" >nul 2>nul || (
+    echo requirements.txt changed, rebuilding the Python environment...
+    rmdir /s /q "%BACKEND%\venv"
+  )
+)
 if not exist "%BACKEND%\venv\Scripts\python.exe" (
   echo Creating Python virtual environment...
   %PY% -m venv "%BACKEND%\venv" || (pause & exit /b 1)
   "%BACKEND%\venv\Scripts\python.exe" -m pip install --upgrade pip
   "%BACKEND%\venv\Scripts\python.exe" -m pip install -r "%BACKEND%\requirements.txt" || (pause & exit /b 1)
+  copy /y "%BACKEND%\requirements.txt" "%BACKEND%\venv\requirements.installed" >nul
 )
 
 REM --- Frontend setup (first run only) ---

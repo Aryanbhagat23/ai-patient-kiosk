@@ -4,8 +4,9 @@ pydantic
 sqlalchemy
 python-multipart
 numpy
-deepface
+deepface==0.0.101
 tf-keras
-opencv-python-headless
+# OpenCV 5 dropped the face-detector files DeepFace needs
+opencv-python>=4.5,<5
 pytest
 httpx
